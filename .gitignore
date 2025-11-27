@@ -1,0 +1,14 @@
+# Variables de entorno, carpetas y más
+.venv
+.env
+__pycache__
+AGENTS.md
+database.db
+
+credentials.json
+*.pickle
+DOCUMENTS
+contextos_guardados
+
+# Carpeta generada por Claude
+.claude/

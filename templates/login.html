@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesion - Insightia</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo.png') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="auth-body">
+    <!-- Particulas animadas de fondo -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div class="auth-container">
+        <!-- Panel izquierdo - Branding -->
+        <div class="auth-branding">
+            <div class="branding-content">
+                <div class="logo-container">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Insightia Logo" class="logo">
+                </div>
+                <h1 class="brand-name">SICOP</h1>
+                <p class="brand-tagline">Universitaria de Colombia</p>
+
+                <div class="features-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <span>Procesamiento automatico de PDFs</span>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </div>
+                        <span>Chat inteligente con IA</span>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                        <span>Seguridad de nivel empresarial</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="branding-footer">
+                <p>Transformando documentos en conocimiento</p>
+            </div>
+        </div>
+
+        <!-- Panel derecho - Formulario -->
+        <div class="auth-form-panel">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Bienvenido de nuevo</h2>
+                    <p>Ingresa tus credenciales para continuar</p>
+                </div>
+
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            Correo Electronico
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="form-input"
+                            placeholder="ejemplo@correo.com"
+                            required
+                            autocomplete="email"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            Contraseña
+                        </label>
+                        <div class="input-wrapper">
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="form-input"
+                                placeholder="Tu contraseña"
+                                required
+                                autocomplete="current-password"
+                            >
+                            <button type="button" class="toggle-password" onclick="togglePassword('password')">
+                                <svg id="password-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                <svg id="password-icon-hide" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="alert alert-error" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span></span>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="loginBtn">
+                        <span class="btn-text">Iniciar Sesion</span>
+                        <span class="btn-loader" style="display: none;">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="32" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </button>
+                </form>
+
+                <div class="form-divider">
+                    <span>o</span>
+                </div>
+
+                <div class="form-footer">
+                    <p>¿No tienes una cuenta?</p>
+                    <a href="{{ url_for('auth.registro_page') }}" class="link-register">
+                        Crear cuenta gratis
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const showIcon = document.getElementById(inputId + '-icon-show');
+            const hideIcon = document.getElementById(inputId + '-icon-hide');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                showIcon.style.display = 'none';
+                hideIcon.style.display = 'block';
+            } else {
+                input.type = 'password';
+                showIcon.style.display = 'block';
+                hideIcon.style.display = 'none';
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = loginBtn.querySelector('.btn-text');
+            const btnLoader = loginBtn.querySelector('.btn-loader');
+            const btnIcon = loginBtn.querySelector('.btn-icon');
+            const errorMessage = document.getElementById('errorMessage');
+
+            loginBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnIcon.style.display = 'none';
+            btnLoader.style.display = 'flex';
+            errorMessage.style.display = 'none';
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/auth/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    loginBtn.classList.add('success');
+                    btnLoader.style.display = 'none';
+                    btnText.textContent = '¡Bienvenido!';
+                    btnText.style.display = 'inline';
+                    setTimeout(() => window.location.href = '/', 500);
+                } else {
+                    errorMessage.querySelector('span').textContent = data.error || 'Error al iniciar sesion';
+                    errorMessage.style.display = 'flex';
+                    loginBtn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnIcon.style.display = 'block';
+                    btnLoader.style.display = 'none';
+                }
+            } catch (error) {
+                errorMessage.querySelector('span').textContent = 'Error de conexion. Intenta de nuevo.';
+                errorMessage.style.display = 'flex';
+                loginBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnIcon.style.display = 'block';
+                btnLoader.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
