@@ -46,5 +46,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
 # 🚀 CMD final: recrea token.json si existe GOOGLE_TOKEN_JSON y luego arranca Gunicorn
-CMD ["bash", "-c", "if [ -n \"$GOOGLE_TOKEN_JSON\" ]; then echo \"$GOOGLE_TOKEN_JSON\" > /app/src/token.json; fi; exec gunicorn
-  --bind 0.0.0.0:$PORT --workers 4 --timeout 120 app:app"]
+CMD ["bash", "-c", "if [ -n \"$GOOGLE_TOKEN_JSON\" ]; then echo \"$GOOGLE_TOKEN_JSON\" > /app/src/token.json; fi; exec gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 120 app:app"]
+
