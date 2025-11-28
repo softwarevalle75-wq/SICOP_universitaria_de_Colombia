@@ -14,9 +14,14 @@ def google_status():
 def google_authorize():
     """Inicia OAuth dinámicamente según el dominio (local o Railway)."""
 
-    # Construye la URL correcta según dónde esté corriendo
+    # Construye la URL correcta según el dominio
     redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
-    print("REDIRECT URI:", redirect_uri)  # debug útil
+
+    # 🔥 FORZAR HTTPS EN RAILWAY (muy importante)
+    if "railway.app" in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
+
+    print("REDIRECT URI USADA:", redirect_uri)
 
     auth_url = google_drive_service.get_auth_url(redirect_uri)
 
@@ -37,19 +42,27 @@ def google_callback():
     if error:
         return f"<h1>Error: {error}</h1>", 400
 
-    # Construye nuevamente la URL correcta
+    # Reconstruimos el redirect_uri
     redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
+
+    # 🔥 FORZAR HTTPS EN RAILWAY TAMBIÉN AQUÍ
+    if "railway.app" in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
+
     authorization_response = request.url
 
-    # Corrige automáticamente si Google responde con http en vez de https
-    if authorization_response.startswith("http://") and "railway.app" in authorization_response:
-        authorization_response = authorization_response.replace("http://", "https://", 1)
+    # Corrige si Google responde con http
+    if "railway.app" in authorization_response:
+        authorization_response = authorization_response.replace("http://", "https://")
+
+    print("CALLBACK REDIRECT URI:", redirect_uri)
+    print("CALLBACK AUTH RESPONSE:", authorization_response)
 
     success = google_drive_service.handle_oauth_callback(
         authorization_response,
         redirect_uri
     )
-    #Pruebas
+
     if success:
         return """
         <h1>Autorización exitosa</h1>
