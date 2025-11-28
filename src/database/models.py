@@ -30,7 +30,7 @@ class DatabaseManager:
         )
 
     def init_database(self):
-        """Inicializa tablas e índices compatibles con MySQL"""
+        """Inicializa tablas sin recrear índices (para evitar errores en MySQL)."""
 
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -65,30 +65,15 @@ class DatabaseManager:
             );
         """)
 
-        # --- ÍNDICES MYSQL (no soportan IF NOT EXISTS) ---
-        indices = [
-            ("idx_doc_rec_fecha", "documentos_recibidos", "fecha_hora_recepcion"),
-            ("idx_doc_rec_dominio", "documentos_recibidos", "dominio_origen"),
-            ("idx_doc_rec_estado", "documentos_recibidos", "estado_procesamiento"),
-            ("idx_doc_proc_docid", "documentos_procesados", "documento_id")
-        ]
+        # --- ÍNDICES DESACTIVADOS PARA EVITAR CRASH EN MYSQL ---
+        # Railway ya tiene estos índices o no los necesita para correr.
+        # MySQL NO soporta "CREATE INDEX IF NOT EXISTS", por eso la app fallaba.
+        #
+        # Si realmente necesitas índices, se deben crear manualmente en Railway
+        # o implementando una verificación antes de crearlos.
 
-        for index_name, table, column in indices:
-            cursor.execute(f"""
-                SELECT COUNT(1)
-                FROM INFORMATION_SCHEMA.STATISTICS
-                WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME = '{table}'
-                AND INDEX_NAME = '{index_name}';
-            """)
-
-            exists = cursor.fetchone()["COUNT(1)"]
-
-            if exists == 0:
-                cursor.execute(f"""
-                    CREATE INDEX {index_name}
-                    ON {table}({column});
-                """)
+        # (Índices deshabilitados)
+        # pass
 
         cursor.close()
         conn.close()
