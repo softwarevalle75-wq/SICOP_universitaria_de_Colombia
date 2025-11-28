@@ -49,7 +49,7 @@ def google_callback():
         authorization_response,
         redirect_uri
     )
-
+    #Pruebas
     if success:
         return """
         <h1>Autorización exitosa</h1>
