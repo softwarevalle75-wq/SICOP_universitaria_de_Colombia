@@ -1,80 +1,63 @@
-from flask import Blueprint, request, jsonify, redirect, url_for
+from flask import Blueprint, request, jsonify, redirect
 from ..services.google_drive_service import google_drive_service
 
 oauth_bp = Blueprint('oauth', __name__, url_prefix='/oauth')
 
+
 @oauth_bp.route('/google/status', methods=['GET'])
 def google_status():
-    """Verifica el estado de la autenticación con Google Drive"""
     status = google_drive_service.get_token_status()
-    return jsonify({
-        'success': True,
-        'data': status
-    })
+    return jsonify({'success': True, 'data': status})
+
 
 @oauth_bp.route('/google/authorize', methods=['GET'])
 def google_authorize():
-    """Inicia el flujo de autorización OAuth con Google"""
-    #redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
-    redirect_uri = "http://localhost:5000/oauth/google/callback"
+    """Inicia OAuth dinámicamente según el dominio (local o Railway)."""
 
+    # Construye la URL correcta según dónde esté corriendo
+    redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
+    print("REDIRECT URI:", redirect_uri)  # debug útil
 
     auth_url = google_drive_service.get_auth_url(redirect_uri)
 
     if not auth_url:
         return jsonify({
-            'error': 'No se pudo generar URL de autorización. Verifica GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en .env',
+            'error': 'No se pudo generar URL de autorización',
             'codigo': 'OAUTH_CONFIG_ERROR'
         }), 500
 
     return redirect(auth_url)
 
+
 @oauth_bp.route('/google/callback', methods=['GET'])
 def google_callback():
-    """Callback de OAuth después de la autorización"""
+    """Callback desde Google OAuth"""
+
     error = request.args.get('error')
     if error:
-        return f"""
-        <html>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: #dc3545;">Error de Autorización</h1>
-            <p>Google rechazó la autorización: {error}</p>
-            <a href="/" style="color: #007bff;">Volver al inicio</a>
-        </body>
-        </html>
-        """, 400
+        return f"<h1>Error: {error}</h1>", 400
 
-    #redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
-    redirect_uri = "http://localhost:5000/oauth/google/callback"
+    # Construye nuevamente la URL correcta
+    redirect_uri = request.host_url.rstrip('/') + '/oauth/google/callback'
     authorization_response = request.url
 
-    """if authorization_response.startswith('http://') and 'localhost' not in authorization_response:
-        authorization_response = authorization_response.replace('http://', 'https://', 1)"""
-    
-    authorization_response = authorization_response.replace("127.0.0.1", "localhost")
-    redirect_uri = "http://localhost:5000/oauth/google/callback"
+    # Corrige automáticamente si Google responde con http en vez de https
+    if authorization_response.startswith("http://") and "railway.app" in authorization_response:
+        authorization_response = authorization_response.replace("http://", "https://", 1)
 
-
-    success = google_drive_service.handle_oauth_callback(authorization_response, redirect_uri)
+    success = google_drive_service.handle_oauth_callback(
+        authorization_response,
+        redirect_uri
+    )
 
     if success:
-        return f"""
-        <html>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: #28a745;">Autorización Exitosa</h1>
-            <p>Google Drive ha sido conectado correctamente.</p>
-            <p>Ya puedes subir archivos PDF.</p>
-            <a href="/" style="color: #007bff; text-decoration: none; padding: 10px 20px; background: #007bff; color: white; border-radius: 5px;">Volver al inicio</a>
-        </body>
-        </html>
+        return """
+        <h1>Autorización exitosa</h1>
+        <p>Google Drive está conectado.</p>
+        <a href="/">Volver</a>
         """
-    else:
-        return f"""
-        <html>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: #dc3545;">Error al Guardar Token</h1>
-            <p>No se pudo completar la autorización. Intenta de nuevo.</p>
-            <a href="/oauth/google/authorize" style="color: #007bff;">Reintentar</a>
-        </body>
-        </html>
-        """, 500
+
+    return """
+    <h1>Error guardando token</h1>
+    <a href="/oauth/google/authorize">Reintentar</a>
+    """, 500
