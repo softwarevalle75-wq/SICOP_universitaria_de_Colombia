@@ -15,7 +15,6 @@ class DatabaseManager:
         self.database = os.getenv("MYSQL_DATABASE", "sgdea_users")
         self.port = int(os.getenv("MYSQL_PORT", "3306"))
 
-        # Inicializar tablas si no existen
         self.init_database()
 
     def get_connection(self):
@@ -31,10 +30,12 @@ class DatabaseManager:
         )
 
     def init_database(self):
-        """Inicializa las tablas si no existen"""
+        """Inicializa tablas e índices compatibles con MySQL"""
+
         conn = self.get_connection()
         cursor = conn.cursor()
 
+        # --- TABLAS ---
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS documentos_recibidos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -58,24 +59,41 @@ class DatabaseManager:
                 fecha_procesamiento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 version_procesamiento VARCHAR(20) DEFAULT '1.0',
                 tiempo_procesamiento_segundos FLOAT,
-                
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (documento_id) REFERENCES documentos_recibidos(id)
                     ON DELETE CASCADE
             );
         """)
 
-        # Índices
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_rec_fecha ON documentos_recibidos(fecha_hora_recepcion);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_rec_dominio ON documentos_recibidos(dominio_origen);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_rec_estado ON documentos_recibidos(estado_procesamiento);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_doc_proc_doc_id ON documentos_procesados(documento_id);")
+        # --- ÍNDICES MYSQL (no soportan IF NOT EXISTS) ---
+        indices = [
+            ("idx_doc_rec_fecha", "documentos_recibidos", "fecha_hora_recepcion"),
+            ("idx_doc_rec_dominio", "documentos_recibidos", "dominio_origen"),
+            ("idx_doc_rec_estado", "documentos_recibidos", "estado_procesamiento"),
+            ("idx_doc_proc_docid", "documentos_procesados", "documento_id")
+        ]
+
+        for index_name, table, column in indices:
+            cursor.execute(f"""
+                SELECT COUNT(1)
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = '{table}'
+                AND INDEX_NAME = '{index_name}';
+            """)
+
+            exists = cursor.fetchone()["COUNT(1)"]
+
+            if exists == 0:
+                cursor.execute(f"""
+                    CREATE INDEX {index_name}
+                    ON {table}({column});
+                """)
 
         cursor.close()
         conn.close()
 
     def test_connection(self) -> bool:
-        """Prueba conexión MySQL"""
         try:
             conn = self.get_connection()
             conn.close()
@@ -275,7 +293,6 @@ class DocumentoProcesado:
         cursor.execute(sql, (f"%{termino}%",))
         rows = cursor.fetchall()
 
-        # Parsear JSON
         for r in rows:
             r["contenido_json"] = json.loads(r["contenido_json"])
 
