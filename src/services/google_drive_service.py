@@ -14,36 +14,82 @@ SCOPES = [
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
+
 class GoogleDriveService:
     def __init__(self):
         self._service = None
         self._creds = None
-        #self._token_path = os.path.join(tempfile.gettempdir(), "gdrive_oauth_token.json")
-        # Guardar token en ruta fija dentro del proyecto
+
+        # 1) Token en VARIABLE DE ENTORNO (Railway)
+        self._token_env = os.getenv("GOOGLE_TOKEN_JSON")
+
+        # 2) Token en archivo local (para desarrollo)
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src/services/
         TOKEN_FILE = os.path.join(BASE_DIR, "..", "token.json")
         self._token_path = os.path.abspath(TOKEN_FILE)
         print("TOKEN_PATH:", self._token_path)
+
         self._upload_lock = threading.Lock()
         self._flow = None
 
+    # ==========================
+    #   MANEJO DE CREDENCIALES
+    # ==========================
+
     def _load_oauth_user_creds(self) -> Optional[UserCredentials]:
-        try:
-            if os.path.exists(self._token_path):
-                creds = UserCredentials.from_authorized_user_file(self._token_path, SCOPES)
+        """
+        Carga las credenciales:
+        1) Primero desde la variable GOOGLE_TOKEN_JSON (Railway)
+        2) Si no existe, desde token.json (local)
+        """
+        # 1) Variable de entorno
+        if self._token_env:
+            try:
+                data = json.loads(self._token_env)
+                creds = UserCredentials.from_authorized_user_info(data, SCOPES)
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(GoogleRequest())
                 return creds
-        except Exception:
-            pass
+            except Exception as e:
+                print("Error leyendo GOOGLE_TOKEN_JSON:", e)
+
+        # 2) Archivo local (útil para desarrollo)
+        try:
+            if os.path.exists(self._token_path):
+                creds = UserCredentials.from_authorized_user_file(
+                    self._token_path, SCOPES
+                )
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(GoogleRequest())
+                return creds
+        except Exception as e:
+            print("Error leyendo token.json:", e)
+
         return None
 
     def _save_oauth_user_creds(self, creds: UserCredentials) -> None:
+        """
+        Guarda el token en token.json (para desarrollo) y
+        lo imprime en consola para que puedas copiarlo y
+        pegarlo en GOOGLE_TOKEN_JSON (Railway).
+        """
         try:
+            # Guardar en archivo local (útil si corres la app en tu PC)
             with open(self._token_path, "w", encoding="utf-8") as f:
                 f.write(creds.to_json())
-        except Exception:
-            pass
+            print("Token guardado en token.json")
+
+            # Mostrar JSON para copiarlo a Railway
+            token_json = creds.to_json()
+            print("\n=========== GOOGLE_TOKEN_JSON ===========")
+            print(token_json)
+            print("=========================================\n")
+        except Exception as e:
+            print("Error guardando token:", e)
+
+    # ==========================
+    #   FLUJO OAUTH
+    # ==========================
 
     def get_auth_url(self, redirect_uri: str) -> Optional[str]:
         """Genera la URL de autorización OAuth para Google Drive"""
@@ -59,7 +105,7 @@ class GoogleDriveService:
                 "client_secret": client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [redirect_uri]
+                "redirect_uris": [redirect_uri],
             }
         }
 
@@ -67,9 +113,9 @@ class GoogleDriveService:
         self._flow.redirect_uri = redirect_uri
 
         auth_url, _ = self._flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            prompt='consent'
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
         )
 
         return auth_url
@@ -89,7 +135,7 @@ class GoogleDriveService:
                     "client_secret": client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [redirect_uri]
+                    "redirect_uris": [redirect_uri],
                 }
             }
 
@@ -99,6 +145,8 @@ class GoogleDriveService:
 
             creds = flow.credentials
             self._save_oauth_user_creds(creds)
+
+            # Actualizar en memoria
             self._creds = creds
             self._service = None
 
@@ -109,30 +157,36 @@ class GoogleDriveService:
 
     def get_token_status(self) -> dict:
         """Retorna el estado actual del token OAuth"""
-        has_token = os.path.exists(self._token_path)
+        has_token_env = bool(self._token_env)
+        has_token_file = os.path.exists(self._token_path)
         has_env = bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"))
         has_folder = bool(Config.GOOGLE_DRIVE_FOLDER_ID)
 
         token_valid = False
-        if has_token:
-            creds = self._load_oauth_user_creds()
-            token_valid = creds is not None and creds.valid
+        creds = self._load_oauth_user_creds()
+        if creds is not None and creds.valid:
+            token_valid = True
 
         return {
-            "has_token": has_token,
+            "has_token_env": has_token_env,
+            "has_token_file": has_token_file,
             "token_valid": token_valid,
             "has_credentials": has_env,
             "has_folder_id": has_folder,
             "is_configured": self.is_configured,
-            "token_path": self._token_path
+            "token_path": self._token_path,
         }
 
     @property
     def is_configured(self) -> bool:
-        """Config dinámica solo OAuth: requiere carpeta, CLIENT_ID/SECRET y token presente."""
+        """
+        Config dinámica solo OAuth:
+        requiere carpeta, CLIENT_ID/SECRET y token presente
+        (en variable o archivo).
+        """
         require_folder = bool(Config.GOOGLE_DRIVE_FOLDER_ID)
         has_oauth_env = bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"))
-        has_oauth_token = os.path.exists(self._token_path)
+        has_oauth_token = bool(self._token_env) or os.path.exists(self._token_path)
         return require_folder and has_oauth_env and has_oauth_token
 
     def _get_credentials(self):
@@ -151,8 +205,14 @@ class GoogleDriveService:
             self._creds = self._get_credentials()
             if not self._creds:
                 return None
-            self._service = build("drive", "v3", credentials=self._creds, cache_discovery=False)
+            self._service = build(
+                "drive", "v3", credentials=self._creds, cache_discovery=False
+            )
         return self._service
+
+    # ==========================
+    #   SUBIDA DE ARCHIVOS
+    # ==========================
 
     def upload_pdf(self, file_content: bytes, filename: str) -> Tuple[Optional[str], Optional[str]]:
         # Usar lock para evitar problemas de concurrencia
@@ -163,20 +223,37 @@ class GoogleDriveService:
                 if not svc:
                     print("Error: No se pudo obtener el servicio de Google Drive")
                     return None, None
-                
+
                 metadata = {"name": filename}
                 if Config.GOOGLE_DRIVE_FOLDER_ID:
                     metadata["parents"] = [Config.GOOGLE_DRIVE_FOLDER_ID]
-                
-                media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype="application/pdf", resumable=True)
-                
+
+                media = MediaIoBaseUpload(
+                    io.BytesIO(file_content),
+                    mimetype="application/pdf",
+                    resumable=True,
+                )
+
                 # Reintentar la subida hasta 3 veces en caso de error
                 for attempt in range(3):
                     try:
                         print(f"Intento {attempt + 1} de subida para {filename}")
-                        res = svc.files().create(body=metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True).execute()
+                        res = (
+                            svc.files()
+                            .create(
+                                body=metadata,
+                                media_body=media,
+                                fields="id, webViewLink",
+                                supportsAllDrives=True,
+                            )
+                            .execute()
+                        )
                         file_id = res.get("id")
-                        drive_url = res.get("webViewLink") or (f"https://drive.google.com/file/d/{file_id}/view" if file_id else None)
+                        drive_url = res.get("webViewLink") or (
+                            f"https://drive.google.com/file/d/{file_id}/view"
+                            if file_id
+                            else None
+                        )
                         print(f"Subida exitosa: {filename} -> {file_id}")
                         return file_id, drive_url
                     except Exception as e:
@@ -191,11 +268,12 @@ class GoogleDriveService:
                         svc = self._get_service()
                         if not svc:
                             return None, None
-                
+
                 return None, None
             except Exception as e:
                 print(f"Error en upload_pdf para {filename}: {str(e)}")
                 return None, None
+
 
 # Instancia única para usar en las rutas
 google_drive_service = GoogleDriveService()
