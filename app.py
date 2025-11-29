@@ -25,10 +25,6 @@ from src.services.auth_service import (
 # Importar base de datos de usuarios
 from src.database.user_models import user_db_manager
 
-
-
-
-
 def create_app():
     """Factory function para crear la aplicacion Flask"""
     app = Flask(__name__,
@@ -65,12 +61,14 @@ def create_app():
         token = get_token_from_request()
 
         if not token:
-            return redirect(url_for('auth.login_page'))
+            return render_template('Login.html')
+
 
         payload = auth_service.verify_access_token(token)
 
         if not payload:
-            return redirect(url_for('auth.login_page'))
+            return render_template('Login.html')
+
 
         # Obtener info del usuario para pasar al template
         user = {
