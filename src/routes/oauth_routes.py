@@ -32,7 +32,7 @@ def google_authorize():
         }), 500
 
     return redirect(auth_url)
-
+    #Pruebas
 
 @oauth_bp.route('/google/callback', methods=['GET'])
 def google_callback():
