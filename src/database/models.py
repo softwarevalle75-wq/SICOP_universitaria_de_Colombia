@@ -126,4 +126,185 @@ class DocumentoRecibido:
         return updated
 
     def listar_pendientes(self):
-        conn = self.db.get_connectio_
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM documentos_recibidos WHERE estado_procesamiento='pendiente'")
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Ordenamiento en Python
+        return sorted(rows, key=lambda d: d["fecha_hora_recepcion"], reverse=True)
+
+    def listar_por_dominio(self, dominio):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM documentos_recibidos 
+            WHERE dominio_origen=%s
+        """, (dominio,))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return sorted(rows, key=lambda d: d["fecha_hora_recepcion"], reverse=True)
+
+    def listar_por_estado(self, estado):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM documentos_recibidos
+            WHERE estado_procesamiento=%s
+        """, (estado,))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return sorted(rows, key=lambda d: d["fecha_hora_recepcion"], reverse=True)
+
+    # -------------------------------
+    # NUEVO: consulta sin ORDER BY
+    # -------------------------------
+    def listar_todos_sin_ordenar(self, limite=1000, offset=0):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM documentos_recibidos
+            LIMIT %s OFFSET %s
+        """, (limite, offset))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return rows
+
+    def listar_todos(self, limite=50, offset=0):
+        # primero obtener muchísimos sin ordenar
+        documentos = self.listar_todos_sin_ordenar(limite=2000, offset=0)
+
+        # luego ordenar
+        documentos_ordenados = sorted(
+            documentos,
+            key=lambda d: d["fecha_hora_recepcion"],
+            reverse=True
+        )
+
+        return documentos_ordenados[offset:offset + limite]
+
+    def contar_todos(self):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) AS total FROM documentos_recibidos;")
+        total = cursor.fetchone()["total"]
+        cursor.close()
+        conn.close()
+        return total
+
+    def eliminar(self, documento_id):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM documentos_procesados WHERE documento_id=%s", (documento_id,))
+        cursor.execute("DELETE FROM documentos_recibidos WHERE id=%s", (documento_id,))
+
+        deleted = cursor.rowcount > 0
+        cursor.close()
+        conn.close()
+        return deleted
+
+
+class DocumentoProcesado:
+    """Modelo para documentos procesados"""
+
+    def __init__(self, db: DatabaseManager):
+        self.db = db
+
+    def crear(self, documento_id, contenido_json,
+              tiempo_procesamiento=None, version='1.0'):
+
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        sql = """
+            INSERT INTO documentos_procesados
+            (documento_id, contenido_json, version_procesamiento, tiempo_procesamiento_segundos)
+            VALUES (%s, %s, %s, %s)
+        """
+
+        cursor.execute(sql, (
+            documento_id,
+            json.dumps(contenido_json, ensure_ascii=False),
+            version,
+            tiempo_procesamiento
+        ))
+
+        new_id = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return new_id
+
+    def obtener_por_documento_id(self, documento_id):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        sql = """
+            SELECT dp.*, dr.nombre_pdf, dr.dominio_origen, dr.fecha_hora_recepcion
+            FROM documentos_procesados dp
+            JOIN documentos_recibidos dr ON dp.documento_id = dr.id
+            WHERE dp.documento_id=%s
+            ORDER BY dp.fecha_procesamiento DESC
+            LIMIT 1
+        """
+
+        cursor.execute(sql, (documento_id,))
+        row = cursor.fetchone()
+
+        if row and "contenido_json" in row:
+            row["contenido_json"] = json.loads(row["contenido_json"])
+
+        cursor.close()
+        conn.close()
+
+        return row
+
+    def buscar_en_contenido(self, termino):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        sql = """
+            SELECT dp.*, dr.nombre_pdf, dr.dominio_origen, dr.fecha_hora_recepcion
+            FROM documentos_procesados dp
+            JOIN documentos_recibidos dr ON dp.documento_id = dr.id
+            WHERE dp.contenido_json LIKE %s
+        """
+
+        cursor.execute(sql, (f"%{termino}%",))
+        rows = cursor.fetchall()
+
+        for r in rows:
+            r["contenido_json"] = json.loads(r["contenido_json"])
+
+        cursor.close()
+        conn.close()
+        return rows
+
+    def obtener_todos_procesados(self):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT dp.documento_id, dp.fecha_procesamiento, dp.version_procesamiento,
+                   dr.nombre_pdf, dr.dominio_origen, dr.fecha_hora_recepcion
+            FROM documentos_procesados dp
+            JOIN documentos_recibidos dr ON dp.documento_id = dr.id
+        """)
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return rows
+
+
+# Instancias globales
+db_manager = DatabaseManager()
+documento_recibido = DocumentoRecibido(db_manager)
+documento_procesado = DocumentoProcesado(db_manager)
