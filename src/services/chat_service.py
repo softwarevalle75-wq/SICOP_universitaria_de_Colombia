@@ -1,23 +1,24 @@
 import os
-from openai import OpenAI
+import google.generativeai as genai
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Configurar cliente OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Configurar cliente Gemini
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 class ChatService:
     def __init__(self):
         self.max_history_length = 10  # Reducido para simplicidad
-    
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
     def responder_con_contexto_ia(self, pregunta: str, contexto_completo: str) -> str:
         """Responde usando ÚNICAMENTE el contexto del documento"""
         if not contexto_completo or "No se encontraron documentos" in contexto_completo:
             return "No tengo información en los documentos para responder esa pregunta."
-        
+
         prompt = f"""INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 
 1. ANÁLISIS EXHAUSTIVO OBLIGATORIO:
@@ -47,14 +48,12 @@ DOCUMENTO COMPLETO A ANALIZAR:
 PREGUNTA: {pregunta}
 
 RESPUESTA (después de revisar TODO el documento):"""
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        return response.choices[0].message.content.strip()
-    
+
+        model = genai.GenerativeModel(self.model_name)
+        response = model.generate_content(prompt)
+
+        return response.text.strip()
+
     def responder_chat(self, pregunta: str, contexto: str = "") -> str:
         """Función principal: Responde usando todo el contexto"""
         try:
@@ -63,13 +62,13 @@ RESPUESTA (después de revisar TODO el documento):"""
             return respuesta
         except Exception as e:
             return f"Error: {str(e)} Api Key"
-    
 
-    
+
+
     def create_system_message(self, context: str = "") -> Dict[str, str]:
         """Mantener compatibilidad - método simplificado"""
         return {"role": "system", "content": "Asistente de documentos"}
-    
+
     def manage_conversation_history(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Gestiona el historial de conversación de forma simple"""
         if len(history) > self.max_history_length:

@@ -9,7 +9,7 @@ Pillow
 spacy
 Flask
 requests
-openai
+google-generativeai
 mysql-connector-python
 bcrypt
 pyjwt
